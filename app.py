@@ -6,8 +6,10 @@ from PDF documents, generates interactive charts, and provides general
 financial insights — all through natural language.
 """
 
+import os
 from string import Template
 
+import pandas as pd
 import streamlit as st
 
 from src.config import (
@@ -39,6 +41,7 @@ from src.utils import (
     validate_csv,
     validate_file_size,
 )
+from src.financial_metrics import calculate_kpis, generate_executive_summary
 
 st.set_page_config(
     page_title="AI Financial Analyst Agent",
@@ -1131,6 +1134,91 @@ hr {
     -webkit-text-fill-color: inherit !important;
 }
 
+/* ═══════ Financial Hub & KPI Grid ═══════ */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin: 0.85rem 0 1.1rem 0;
+}
+
+.kpi-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.85rem 0.95rem;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 20px rgba(20, 184, 166, 0.12);
+}
+
+.kpi-card-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: var(--muted) !important;
+    -webkit-text-fill-color: var(--muted) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.kpi-card-value {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.kpi-card-sub {
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: var(--accent) !important;
+    -webkit-text-fill-color: var(--accent) !important;
+    margin-top: 0.25rem;
+}
+
+/* ═══════ Executive Summary Box ═══════ */
+.exec-summary-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    margin: 0.9rem 0 1.2rem 0;
+    position: relative;
+    box-shadow: var(--shadow);
+}
+
+.exec-summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--gradient);
+    border-radius: 14px 14px 0 0;
+}
+
+.exec-header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--soft);
+    color: var(--accent) !important;
+    -webkit-text-fill-color: var(--accent) !important;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+}
+
 </style>
 """)
 
@@ -1144,8 +1232,14 @@ st.markdown(CSS_TEMPLATE.substitute(t), unsafe_allow_html=True)
 # AUTHENTICATION GATE
 # ══════════════════════════════════════════════════════
 
-if "user" not in st.session_state:
-    st.session_state.user = None
+class LocalUser:
+    """Mock user object for guest mode when Supabase is not configured."""
+    def __init__(self, user_id: str = "guest_user", email: str = "Guest User"):
+        self.id = user_id
+        self.email = email
+
+if "user" not in st.session_state or (supabase is None and st.session_state.user is None):
+    st.session_state.user = LocalUser() if supabase is None else None
 
 if st.session_state.user is None:
     # Auth-page styles
@@ -1190,6 +1284,8 @@ if st.session_state.user is None:
             if login_submitted:
                 if not login_email or not login_password:
                     st.error("Please enter both email and password.")
+                elif supabase is None:
+                    st.error("Supabase authentication is not configured in .env. Click 'Continue as Guest' below.")
                 else:
                     with st.spinner("Signing in..."):
                         result = login_user(supabase, login_email, login_password)
@@ -1213,6 +1309,8 @@ if st.session_state.user is None:
                     st.error("Passwords do not match.")
                 elif len(signup_password) < 6:
                     st.error("Password must be at least 6 characters.")
+                elif supabase is None:
+                    st.error("Supabase authentication is not configured in .env. Click 'Continue as Guest' below.")
                 else:
                     with st.spinner("Creating account..."):
                         result = signup_user(supabase, signup_email, signup_password)
@@ -1220,6 +1318,11 @@ if st.session_state.user is None:
                         st.success(result["message"])
                     else:
                         st.error(result["error"])
+
+        st.markdown("<div style='text-align:center; margin: 1rem 0; color: var(--text-2);'>— or —</div>", unsafe_allow_html=True)
+        if st.button("🚀 Continue as Guest", use_container_width=True, type="primary"):
+            st.session_state.user = LocalUser()
+            st.rerun()
 
     st.stop()
 
@@ -1231,7 +1334,7 @@ if st.session_state.user is None:
 user_id = st.session_state.user.id
 
 if "messages" not in st.session_state:
-    st.session_state.messages = load_chat_history(supabase, user_id)
+    st.session_state.messages = load_chat_history(supabase, user_id) if supabase else []
 if "df" not in st.session_state:
     st.session_state.df = None
 if "vectorstore" not in st.session_state:
@@ -1268,9 +1371,12 @@ with st.sidebar:
         )
     with _u_col2:
         if st.button("↩", key="logout_btn", help="Sign out"):
-            logout_user(supabase)
+            if supabase:
+                logout_user(supabase)
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
+            if supabase is None:
+                st.session_state.user = LocalUser()
             st.rerun()
 
     st.markdown('<div class="theme-row">', unsafe_allow_html=True)
@@ -1294,6 +1400,54 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # ── Quick Demo Datasets Loader ──────────────
+    st.markdown(
+        '<div style="background: var(--surface-2, #131C30); border: 1px solid var(--border, rgba(148,163,184,0.15)); '
+        'border-radius: 10px; padding: 0.75rem; margin-bottom: 0.85rem;">'
+        '<div style="font-weight: 800; font-size: 0.78rem; color: var(--accent, #14B8A6); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">'
+        '⚡ One-Click Demo Data</div>'
+        '<div style="font-size: 0.74rem; color: var(--text-2, #94A3B8); margin-bottom: 0.55rem; line-height: 1.35;">'
+        'Test immediately with built-in financial files:</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    _demo_col1, _demo_col2 = st.columns(2)
+    with _demo_col1:
+        if st.button("📊 Sales CSV", help="Load built-in sample sales transactions CSV", use_container_width=True):
+            _sample_csv = os.path.join(os.path.dirname(__file__), "data", "sample_sales.csv")
+            if os.path.exists(_sample_csv):
+                st.session_state.df = pd.read_csv(_sample_csv)
+                st.session_state.csv_name = "sample_sales.csv"
+                if "exec_summary" in st.session_state:
+                    del st.session_state["exec_summary"]
+                st.rerun()
+    with _demo_col2:
+        if st.button("📑 Annual PDF", help="Load and index built-in sample annual report PDF", use_container_width=True):
+            _sample_pdf = os.path.join(os.path.dirname(__file__), "data", "annual_report.pdf")
+            if os.path.exists(_sample_pdf):
+                with open(_sample_pdf, "rb") as f:
+                    _pdf_bytes = f.read()
+                with st.spinner("Indexing annual report..."):
+                    st.session_state.vectorstore = process_pdf(_pdf_bytes, config)
+                    st.session_state.pdf_name = "annual_report.pdf"
+                st.rerun()
+
+    if st.button("🚀 Load Both Demo Datasets", help="Load both sample CSV and sample PDF", use_container_width=True):
+        _sample_csv = os.path.join(os.path.dirname(__file__), "data", "sample_sales.csv")
+        _sample_pdf = os.path.join(os.path.dirname(__file__), "data", "annual_report.pdf")
+        if os.path.exists(_sample_csv):
+            st.session_state.df = pd.read_csv(_sample_csv)
+            st.session_state.csv_name = "sample_sales.csv"
+            if "exec_summary" in st.session_state:
+                del st.session_state["exec_summary"]
+        if os.path.exists(_sample_pdf):
+            with open(_sample_pdf, "rb") as f:
+                _pdf_bytes = f.read()
+            with st.spinner("Indexing annual report..."):
+                st.session_state.vectorstore = process_pdf(_pdf_bytes, config)
+                st.session_state.pdf_name = "annual_report.pdf"
+        st.rerun()
+
     st.markdown(
         '<div class="upload-label"><strong>CSV dataset</strong><span>Analysis + charts</span></div>',
         unsafe_allow_html=True,
@@ -1312,44 +1466,50 @@ with st.sidebar:
             csv_file.seek(0)
             st.session_state.df = validate_csv(csv_file)
             st.session_state.csv_name = csv_file.name
-
-            df = st.session_state.df
-            num_cols = len(df.select_dtypes(include="number").columns)
-            null_pct = (df.isna().sum().sum() / (df.shape[0] * df.shape[1]) * 100) if df.shape[0] > 0 else 0
-            st.markdown(
-                '<div class="stats-row">'
-                '<div class="stat-box"><div class="stat-num">%s</div><div class="stat-lbl">Rows</div></div>'
-                '<div class="stat-box"><div class="stat-num">%d</div><div class="stat-lbl">Columns</div></div>'
-                '<div class="stat-box"><div class="stat-num">%d</div><div class="stat-lbl">Numeric</div></div>'
-                '</div>' % ("{:,}".format(df.shape[0]), df.shape[1], num_cols),
-                unsafe_allow_html=True,
-            )
-
-            # ── Auto CSV Insights ────────────────────────
-            insights = get_csv_quick_insights(df)
-            if insights:
-                items_html = ""
-                for ins in insights:
-                    items_html += (
-                        '<div class="insight-item">'
-                        '<span class="insight-col">%s</span>'
-                        '<span class="insight-val">μ %s</span>'
-                        '</div>' % (ins["col"], "{:,.0f}".format(ins["mean"]))
-                    )
-                st.markdown(
-                    '<div class="insights-panel">'
-                    '<div class="insights-title">⚡ Quick Insights</div>'
-                    '%s'
-                    '</div>' % items_html,
-                    unsafe_allow_html=True,
-                )
-
-            with st.expander("Preview dataset", expanded=False):
-                st.dataframe(df.head(10), use_container_width=True)
-
+            if "exec_summary" in st.session_state:
+                del st.session_state["exec_summary"]
         except FileValidationError as e:
             st.error("❌ %s" % e)
             st.session_state.df = None
+
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        num_cols = len(df.select_dtypes(include="number").columns)
+        st.markdown(
+            '<div class="status-online"><span class="status-dot"></span>'
+            '<span>%s attached</span></div>' % (st.session_state.csv_name or "CSV"),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="stats-row">'
+            '<div class="stat-box"><div class="stat-num">%s</div><div class="stat-lbl">Rows</div></div>'
+            '<div class="stat-box"><div class="stat-num">%d</div><div class="stat-lbl">Columns</div></div>'
+            '<div class="stat-box"><div class="stat-num">%d</div><div class="stat-lbl">Numeric</div></div>'
+            '</div>' % ("{:,}".format(df.shape[0]), df.shape[1], num_cols),
+            unsafe_allow_html=True,
+        )
+
+        # ── Auto CSV Insights ────────────────────────
+        insights = get_csv_quick_insights(df)
+        if insights:
+            items_html = ""
+            for ins in insights:
+                items_html += (
+                    '<div class="insight-item">'
+                    '<span class="insight-col">%s</span>'
+                    '<span class="insight-val">μ %s</span>'
+                    '</div>' % (ins["col"], "{:,.0f}".format(ins["mean"]))
+                )
+            st.markdown(
+                '<div class="insights-panel">'
+                '<div class="insights-title">⚡ Quick Insights</div>'
+                '%s'
+                '</div>' % items_html,
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("Preview dataset", expanded=False):
+            st.dataframe(df.head(10), use_container_width=True)
 
     st.markdown(
         '<div class="upload-label"><strong>PDF document</strong><span>Search + Q&A</span></div>',
@@ -1402,13 +1562,15 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Clear", use_container_width=True):
-            clear_chat_history(supabase, user_id)
+            if supabase:
+                clear_chat_history(supabase, user_id)
             st.session_state.messages = []
             st.session_state.chart_counter = 0
             st.rerun()
     with col2:
         if st.button("Reset", use_container_width=True):
-            clear_chat_history(supabase, user_id)
+            if supabase:
+                clear_chat_history(supabase, user_id)
             for key in ["messages", "df", "vectorstore", "chart_counter", "pdf_name", "csv_name"]:
                 if key in st.session_state:
                     del st.session_state[key]
@@ -1472,19 +1634,104 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── Financial Intelligence & KPI Hub ──────────────────
+if st.session_state.df is not None:
+    kpis = calculate_kpis(st.session_state.df)
+    if kpis.get("has_financial_data"):
+        _rev = f"${kpis['total_revenue']:,.2f}" if kpis['total_revenue'] else "$0.00"
+        _profit = f"${kpis['total_profit']:,.2f}" if kpis['total_profit'] else "$0.00"
+        _cost = f"${kpis['total_cost']:,.2f}" if kpis['total_cost'] else "$0.00"
+        _margin = f"{kpis['net_margin_pct']:.1f}%"
+        _avg_tx = f"${kpis['avg_transaction_val']:,.0f}"
+
+        _driver_str = "Diverse"
+        if kpis["top_performers"]:
+            first_dim = list(kpis["top_performers"].keys())[0]
+            _driver_str = f"{kpis['top_performers'][first_dim]['top_name']} ({kpis['top_performers'][first_dim]['top_share_pct']}%)"
+
+        st.markdown(
+            '<div class="kpi-grid">'
+            '<div class="kpi-card">'
+            '<div class="kpi-card-title">Total Revenue</div>'
+            '<div class="kpi-card-value">%s</div>'
+            '<div class="kpi-card-sub">Avg Tx: %s</div>'
+            '</div>'
+            '<div class="kpi-card">'
+            '<div class="kpi-card-title">Operating Cost</div>'
+            '<div class="kpi-card-value">%s</div>'
+            '<div class="kpi-card-sub">%d records</div>'
+            '</div>'
+            '<div class="kpi-card">'
+            '<div class="kpi-card-title">Net Profit</div>'
+            '<div class="kpi-card-value">%s</div>'
+            '<div class="kpi-card-sub">Margin: %s</div>'
+            '</div>'
+            '<div class="kpi-card">'
+            '<div class="kpi-card-title">Top Revenue Driver</div>'
+            '<div class="kpi-card-value" style="font-size:1.05rem;">%s</div>'
+            '<div class="kpi-card-sub">%s</div>'
+            '</div>'
+            '</div>' % (_rev, _avg_tx, _cost, kpis["row_count"], _profit, _margin, _driver_str, "Key Contributor"),
+            unsafe_allow_html=True,
+        )
+
+        if kpis.get("anomalies"):
+            for anom in kpis["anomalies"]:
+                st.warning(f"⚠️ **Risk Alert**: {anom['description']}")
+
+        # ── Executive Summary Panel ──────────────────
+        with st.expander("⚡ Executive Summary", expanded=("exec_summary" in st.session_state)):
+            if "exec_summary" not in st.session_state:
+                st.caption("Generate a structured executive assessment synthesizing margins, drivers, risks, and strategic recommendations.")
+                if st.button("🚀 Generate Executive Summary", key="btn_gen_exec", type="primary", use_container_width=True):
+                    with st.spinner("Analyzing financial indicators & compiling executive summary..."):
+                        st.session_state.exec_summary = generate_executive_summary(
+                            st.session_state.df, llm, file_name=st.session_state.csv_name or "Dataset"
+                        )
+                    st.rerun()
+            else:
+                st.markdown('<div class="exec-header-badge">🏛️ Executive Briefing</div>', unsafe_allow_html=True)
+                st.markdown(st.session_state.exec_summary)
+
+                _sum_c1, _sum_c2, _sum_c3 = st.columns([1, 1, 1])
+                with _sum_c1:
+                    if st.button("💬 Add to Analyst Chat", key="btn_add_to_chat", use_container_width=True):
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": st.session_state.exec_summary,
+                            "chart": None,
+                            "badge": '<div class="src-tag"><span class="src-dot csv"></span>Executive Summary</div>'
+                        })
+                        st.rerun()
+                with _sum_c2:
+                    if st.button("🔄 Re-generate", key="btn_regen_exec", use_container_width=True):
+                        with st.spinner("Re-analyzing dataset..."):
+                            st.session_state.exec_summary = generate_executive_summary(
+                                st.session_state.df, llm, file_name=st.session_state.csv_name or "Dataset"
+                            )
+                        st.rerun()
+                with _sum_c3:
+                    st.download_button(
+                        "📥 Download (.md)",
+                        data=st.session_state.exec_summary,
+                        file_name=f"executive_summary_{st.session_state.csv_name or 'dataset'}.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                    )
+
 # ── Suggestion Chips ──────────────────────────────
 if st.session_state.df is not None and message_count == 0:
     st.markdown('<div class="chip-row">', unsafe_allow_html=True)
     chip_cols = st.columns(4)
     _chip_prompts = [
-        "📊 Show total revenue",
-        "📈 Plot monthly trend",
-        "📋 Describe the dataset",
-        "🏆 Top 5 by profit",
+        "📊 Plot Profit Margin by Category",
+        "📈 Plot monthly revenue and profit trend",
+        "🔍 Scan for anomalies and low-margin outliers",
+        "🏆 Top 5 products by revenue and profit",
     ]
     for i, label in enumerate(_chip_prompts):
         with chip_cols[i]:
-            if st.button(label, key=f"chip_{i}"):
+            if st.button(label, key=f"chip_{i}", use_container_width=True):
                 st.session_state.voice_input = label.split(" ", 1)[1] if " " in label else label
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)

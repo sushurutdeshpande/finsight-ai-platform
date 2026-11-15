@@ -147,8 +147,8 @@ def _is_clearly_general(question: str) -> bool:
 
     # Pure general knowledge patterns
     general_patterns = [
-        "what is a ", "what is an ", "what are ",
-        "define ", "explain what ", "who is the president",
+        "what is a ", "what is an ", "what are ", "what is ",
+        "define ", "explain what ", "explain ", "who is the president",
         "capital of ", "what is the capital",
     ]
     if any(q.startswith(p) for p in general_patterns):

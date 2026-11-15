@@ -1,11 +1,11 @@
 # 📊 AI Financial Analyst Agent
 
-A production-ready AI-powered financial analysis assistant built with Streamlit, LangChain, and Groq. Upload CSV data or PDF documents, ask questions in plain English, and get instant insights, interactive charts, and AI-driven answers — with user authentication and persistent chat history.
+A production-ready AI-powered financial analysis assistant built with Streamlit, LangChain, and Groq. Upload CSV data or PDF documents, ask questions in plain English, and get instant insights, interactive charts, and AI-driven answers — with one-click demo data, automated executive summaries, and built-in KPI calculations.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.40-red?logo=streamlit)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3-green?logo=chainlink)
-![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-darkgreen?logo=supabase)
+![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB%20(Optional)-darkgreen?logo=supabase)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
@@ -14,16 +14,19 @@ A production-ready AI-powered financial analysis assistant built with Streamlit,
 
 | Feature | Description |
 |---------|-------------|
-| 🔐 **User Authentication** | Supabase email/password signup & login — each user gets their own workspace |
-| 💾 **Persistent Chat History** | Conversations are saved to Supabase PostgreSQL and restored on login |
-| 📄 **CSV Analysis** | Upload any CSV — ask questions, get insights via AI-powered pandas agent |
-| 📑 **PDF Q&A** | Upload **any** PDF (reports, papers, contracts) — search and query with RAG |
+| ⚡ **One-Click Demo Datasets** | Instantly load bundled sample sales CSV & annual report PDF with one click — no file hunt needed |
+| 🏛️ **Executive Summary Generator** | Synthesizes dataset metrics into a 5-section executive report (verdict, highlights, drivers, risks, recommendations) with one-click chat export |
+| 📈 **Financial KPI & Anomaly Engine** | Computes Revenue, Cost, Net Margin %, MoM Growth, and scans for negative-margin or statistical outliers |
+| 🚀 **Instant Guest Mode** | Jump right in without database setup — auto-detects unconfigured Supabase and enables local session mode |
+| 🔐 **User Authentication (Optional)** | Supabase email/password signup & login for multi-user environments |
+| 💾 **Persistent Chat History** | Conversations can be saved to Supabase PostgreSQL or kept in local session memory |
+| 📄 **CSV Analysis (Pandas Agent)** | Upload any CSV — LangChain pandas agent executes actual Python code to compute verified figures |
+| 📑 **PDF Q&A with RAG** | Upload any PDF (reports, 10-Ks, contracts) — FAISS vector search and LangChain RAG pipeline |
 | 🔍 **OCR for Scanned PDFs** | Automatically extracts text from scanned/image-only PDFs using Tesseract OCR |
-| 📊 **Smart Charts** | Auto-generates bar, line, pie, scatter, histogram charts from natural language |
-| 🎤 **Voice Input** | Speak your questions — transcribed via Groq Whisper |
-| 🧠 **General AI** | Ask any finance question — even without uploading data |
-| 🎨 **Premium UI** | Dark/light theme with glassmorphism design and responsive layout |
-| 🔒 **Production-Ready** | Input validation, error handling, retry logic, structured logging |
+| 📊 **Smart Interactive Charts** | Auto-generates Plotly bar, line, pie, scatter, and histogram charts with dark/light theme support |
+| 🎤 **Voice Input** | Speak your questions directly — transcribed via Groq Whisper (`whisper-large-v3`) |
+| 🧠 **General Finance AI** | Ask macroeconomic, valuation, or accounting questions with smart query routing |
+| 🎨 **Premium Glassmorphic UI** | Responsive dark/light theme with glassmorphism styling and real-time status indicators |
 
 ---
 
@@ -31,30 +34,29 @@ A production-ready AI-powered financial analysis assistant built with Streamlit,
 
 ```mermaid
 graph TB
-    A[User] -->|Email + Password| B[Supabase Auth]
-    B -->|Authenticated| C[Main App]
+    A[User] --> B{Auth Gateway}
+    B -->|Local Guest Mode| C[Main App]
+    B -->|Supabase Auth| C
 
-    C --> D[User Query]
-    D --> E{Router}
-    E -->|Chart keywords| F[Chart Generator]
-    E -->|PDF keywords| G[PDF RAG Pipeline]
-    E -->|Data question| H[CSV Pandas Agent]
-    E -->|General| I[Direct LLM]
+    C --> D[Data Ingestion]
+    D -->|Upload or One-Click Demo| E[CSV / PDF Pipeline]
 
-    F --> J[Plotly Charts]
-    G --> K{Text Extraction}
-    K -->|Text-based PDF| L[PyPDFLoader]
-    K -->|Scanned PDF| M[Tesseract OCR]
-    L --> N[FAISS Vector Store]
-    M --> N
-    H --> O[Pandas DataFrame]
-    I --> P[Groq LLM]
+    E -->|CSV| F[Financial KPI & Anomaly Engine]
+    F --> G[Interactive Metric Cards]
+    F --> H[Executive Summary Generator]
 
-    N --> P
-    O --> P
+    C --> I[User Query]
+    I --> J{Intelligent Router}
+    J -->|Chart keywords| K[Plotly Chart Generator]
+    J -->|PDF context| L[PDF RAG FAISS Pipeline]
+    J -->|Data calculations| M[LangChain Pandas REPL Agent]
+    J -->|General finance| N[Direct Groq LLM]
 
-    D -->|Save| Q[Supabase PostgreSQL]
-    Q -->|Load on Login| D
+    K --> O[Analyst Conversation]
+    L --> O
+    M --> O
+    N --> O
+    H -->|Add to Chat| O
 ```
 
 ---
@@ -65,18 +67,71 @@ graph TB
 
 - Python 3.11+
 - A free [Groq API key](https://console.groq.com/keys)
-- A free [Supabase project](https://supabase.com/dashboard) (for auth & chat persistence)
-- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) (optional, for scanned PDF support)
+- *Optional:* A free [Supabase project](https://supabase.com/dashboard) (only needed if you want cloud auth & cross-device persistence)
+- *Optional:* [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) (only needed for scanned image-only PDFs)
 
-### 1. Supabase Setup
+---
 
-1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard)
-2. Go to **Settings → API** and copy the **Project URL** and **anon public key**
-3. Open the **SQL Editor** and run the migration below to create the `chat_history` table:
+### Local Setup
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/prasad-9699/ai-financial-analyst-agent.git
+cd ai-financial-analyst-agent
+
+# 2. Create and activate a virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1       # Windows PowerShell
+# source .venv/bin/activate        # macOS/Linux
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment
+Copy-Item .env.example .env        # Windows PowerShell
+# cp .env.example .env             # macOS/Linux
+```
+
+Open `.env` and add your **Groq API Key**:
+```env
+GROQ_API_KEY=gsk_your_groq_api_key_here
+```
+
+*(You can leave `SUPABASE_URL` and `SUPABASE_KEY` empty to run in **Instant Guest Mode**).*
+
+```bash
+# 5. Launch the Streamlit application
+streamlit run app.py
+```
+Open **`http://localhost:8501`** in your browser.
+
+---
+
+### One-Click Demo Data & Executive Summary
+
+1. Click **"🚀 Load Both Demo Datasets"** in the sidebar.
+2. Review the live **Financial KPI Cards** (Total Revenue, Operating Cost, Net Profit, Top Driver).
+3. Click **"🚀 Generate Executive Summary"** to produce an executive-grade analysis.
+4. Click **"💬 Add to Analyst Chat"** or use the suggestion chips below to explore deeper.
+
+---
+
+### Supabase Cloud Setup (Optional)
+
+If you want multi-user authentication and database-persisted chat histories:
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. Go to **Settings → API** and copy the **Project URL** and **anon public key**.
+3. Add them to your `.env` file:
+   ```env
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_KEY=eyJh...
+   ```
+4. Run this schema in the Supabase **SQL Editor**:
 
 ```sql
 CREATE TABLE IF NOT EXISTS chat_history (
-    id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id     UUID NOT NULL,
     role        TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
     content     TEXT NOT NULL,
@@ -100,117 +155,44 @@ CREATE POLICY "Users delete own messages"
     ON chat_history FOR DELETE USING (auth.uid() = user_id);
 ```
 
-### 2. Local Setup
-
-```bash
-# 1. Clone the repo
-git clone <your-repo-url>
-cd financial_analyst_agent
-
-# 2. Create virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure environment
-cp .env.example .env
-# Edit .env and add your GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY
-
-# 5. Run the app
-streamlit run app.py
-```
-
-The app will open at `http://localhost:8501`.
-
-### 3. Tesseract (for scanned PDFs)
-
-> **Note:** Tesseract is only needed if you plan to upload scanned/image-only PDFs.
-
-- **Windows:** Download from [UB-Mannheim builds](https://github.com/UB-Mannheim/tesseract/wiki), install, then set `TESSERACT_CMD` in `.env` to the path (e.g., `C:\Program Files\Tesseract-OCR\tesseract.exe`).
-- **macOS:** `brew install tesseract`
-- **Linux/Docker:** Already included in the Dockerfile (`tesseract-ocr` + `poppler-utils`).
-
-### Docker
-
-```bash
-# Build (includes Tesseract & Poppler)
-docker build -t financial-analyst .
-
-# Run
-docker run -p 8501:8501 --env-file .env financial-analyst
-```
-
 ---
 
 ## 📁 Project Structure
 
 ```
-financial_analyst_agent/
-├── app.py                    # Main Streamlit application (auth + chat UI)
+ai-finance-analyst/
+├── app.py                      # Main Streamlit application (Guest mode, Hub, Chat UI)
 ├── src/
-│   ├── config.py             # Configuration, validation, logging
-│   ├── llm.py                # LLM factory with retry logic
-│   ├── supabase_client.py    # Supabase auth + chat history persistence
-│   ├── csv_agent.py          # CSV analysis (pandas agent)
-│   ├── pdf_rag.py            # PDF RAG pipeline (with OCR fallback)
-│   ├── charts.py             # Chart generation & column detection
-│   ├── router.py             # Question routing logic
-│   └── utils.py              # File validation, helpers
-├── tests/                    # Unit tests
-├── .streamlit/config.toml    # Streamlit production config
-├── Dockerfile                # Container deployment (with Tesseract)
-├── requirements.txt          # Python dependencies
-├── .env.example              # Environment template
-└── learning/                 # Archived learning scripts (day 1-5)
+│   ├── financial_metrics.py    # KPI calculations, anomaly detection, executive summary generator
+│   ├── config.py               # Configuration validation and structured logging
+│   ├── llm.py                  # Groq LLM factory with retry handlers
+│   ├── csv_agent.py            # Pandas DataFrame REPL agent with fallback logic
+│   ├── pdf_rag.py              # PDF chunking, FAISS embeddings & RAG retrieval
+│   ├── charts.py               # Plotly chart generator with automatic column mapping
+│   ├── router.py               # Natural language intent router (CSV vs PDF vs Chart vs General)
+│   ├── supabase_client.py      # Cloud authentication & chat persistence
+│   └── utils.py                # File size and content validation utilities
+├── data/
+│   ├── sample_sales.csv        # Pre-packaged financial transaction dataset
+│   └── annual_report.pdf       # Pre-packaged corporate annual report document
+├── tests/
+│   ├── test_financial_metrics.py # Unit tests for KPI calculations & anomaly detection
+│   ├── test_charts.py          # Unit tests for chart generation & column detection
+│   ├── test_router.py          # Unit tests for query routing logic
+│   └── test_utils.py           # Unit tests for validators and helpers
+├── Dockerfile                  # Container deployment (with Tesseract & Poppler)
+├── requirements.txt            # Python dependencies
+└── .env.example                # Environment variable template
 ```
-
----
-
-## ⚙️ Configuration
-
-All settings can be customized via environment variables in `.env`:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GROQ_API_KEY` | *required* | Your Groq API key |
-| `SUPABASE_URL` | *required* | Your Supabase project URL |
-| `SUPABASE_KEY` | *required* | Your Supabase anon public key |
-| `MODEL_NAME` | `qwen/qwen3.6-27b` | LLM model to use |
-| `MODEL_TEMPERATURE` | `0` | Response creativity (0 = deterministic) |
-| `MAX_CSV_SIZE_MB` | `50` | Max CSV upload size |
-| `MAX_PDF_SIZE_MB` | `20` | Max PDF upload size |
-| `CHUNK_SIZE` | `1000` | RAG text chunk size |
-| `CHUNK_OVERLAP` | `200` | RAG chunk overlap |
-| `RETRIEVER_TOP_K` | `4` | Number of RAG chunks to retrieve |
-| `TESSERACT_CMD` | `tesseract` | Path to Tesseract binary (if not on PATH) |
-| `LOG_LEVEL` | `INFO` | Logging level |
 
 ---
 
 ## 🧪 Testing
 
+Run all unit tests using pytest:
+
 ```bash
 pytest tests/ -v
-```
-
----
-
-## 🚢 Deployment
-
-### Streamlit Cloud
-
-1. Push your code to GitHub (ensure `.env` is in `.gitignore`)
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your repo and set `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` in Secrets
-
-### Docker / Cloud VM
-
-```bash
-docker build -t financial-analyst .
-docker run -d -p 8501:8501 --env-file .env --restart unless-stopped financial-analyst
 ```
 
 ---

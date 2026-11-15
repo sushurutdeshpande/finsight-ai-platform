@@ -86,9 +86,16 @@ def detect_columns(prompt: str, df: pd.DataFrame) -> Tuple[str, str]:
     y_col = None
 
     if len(mentioned_cols) >= 2:
-        # Two or more columns mentioned — first mentioned is x, second is y
-        x_col = mentioned_cols[0]
-        y_col = mentioned_cols[1]
+        c1, c2 = mentioned_cols[0], mentioned_cols[1]
+        if c1 in numeric_cols and c2 not in numeric_cols:
+            x_col = c2
+            y_col = c1
+        elif c2 in numeric_cols and c1 not in numeric_cols:
+            x_col = c1
+            y_col = c2
+        else:
+            x_col = c1
+            y_col = c2
     elif len(mentioned_cols) == 1:
         col = mentioned_cols[0]
         if col in numeric_cols:
