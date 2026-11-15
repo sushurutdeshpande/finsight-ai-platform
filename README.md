@@ -1,6 +1,6 @@
-# 📊 AI Financial Analyst Agent
+# 📊 FinSight — AI Financial Analysis Platform
 
-A production-ready AI-powered financial analysis assistant built with Streamlit, LangChain, and Groq. Upload CSV data or PDF documents, ask questions in plain English, and get instant insights, interactive charts, and AI-driven answers — with one-click demo data, automated executive summaries, and built-in KPI calculations.
+A production-ready AI financial analysis platform built with Streamlit, LangChain, and Groq. Upload CSV datasets or corporate PDFs, ask questions in natural language, and get verified analytics, interactive charts, and AI-driven insights — featuring one-click demo data, automated executive summaries, and built-in KPI calculation engines.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.40-red?logo=streamlit)

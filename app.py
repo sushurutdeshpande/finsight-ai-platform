@@ -44,7 +44,7 @@ from src.utils import (
 from src.financial_metrics import calculate_kpis, generate_executive_summary
 
 st.set_page_config(
-    page_title="AI Financial Analyst Agent",
+    page_title="FinSight — AI Financial Analysis Platform",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -1266,9 +1266,9 @@ if st.session_state.user is None:
     with _auth_c:
         st.markdown(
             '<div class="auth-brand">'
-            '<div class="auth-brand-icon">FA</div>'
-            '<div class="auth-title">Financial Analyst</div>'
-            '<div class="auth-subtitle">Sign in to access your AI workspace</div>'
+            '<div class="auth-brand-icon">FS</div>'
+            '<div class="auth-title">FinSight</div>'
+            '<div class="auth-subtitle">AI Financial Analysis Platform</div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -1352,9 +1352,9 @@ if "voice_input" not in st.session_state:
 with st.sidebar:
     st.markdown(
         '<div class="app-brand">'
-        '<div class="brand-mark">FA</div>'
-        '<div><div class="brand-title">Financial Analyst</div>'
-        '<div class="brand-subtitle">AI-powered workspace</div></div>'
+        '<div class="brand-mark">FS</div>'
+        '<div><div class="brand-title">FinSight</div>'
+        '<div class="brand-subtitle">AI Financial Analysis Platform</div></div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -1579,7 +1579,7 @@ with st.sidebar:
     # ── Export Chat ──────────────────────────────
     if st.session_state.get("messages"):
         st.divider()
-        chat_export = "# Financial Analyst — Chat Export\n\n"
+        chat_export = "# FinSight — AI Financial Analysis Platform — Chat Export\n\n"
         for msg in st.session_state.messages:
             role = "🧑 You" if msg["role"] == "user" else "🤖 Assistant"
             content = msg.get("content", "")
@@ -1607,7 +1607,7 @@ message_count = len(st.session_state.messages)
 st.markdown(
     '<div class="shell-topbar">'
     '<div>'
-    '<div class="page-kicker"><span class="kicker-line"></span>AI FINANCIAL ANALYSIS CONSOLE</div>'
+    '<div class="page-kicker"><span class="kicker-line"></span>FINSIGHT · AI FINANCIAL ANALYSIS PLATFORM</div>'
     '<h1 class="page-title">Ask, analyze, and <span class="title-gradient">visualize</span> financial data.</h1>'
     '<div class="page-subtitle">A focused workspace for CSV analysis, PDF search, chart generation, and general financial reasoning — powered by AI.</div>'
     '</div>'

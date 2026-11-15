@@ -68,7 +68,7 @@ class AppConfig:
     log_level: str = "INFO"
 
     # App metadata
-    app_title: str = "AI Financial Analyst Agent"
+    app_title: str = "FinSight — AI Financial Analysis Platform"
     app_icon: str = "📊"
 
 
