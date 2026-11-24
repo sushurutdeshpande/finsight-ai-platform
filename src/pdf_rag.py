@@ -10,7 +10,13 @@ Includes automatic OCR fallback for scanned PDFs using Tesseract.
 import logging
 from typing import List, Optional
 
-from langchain.chains import RetrievalQA
+try:
+    from langchain.chains import RetrievalQA
+except (ImportError, ModuleNotFoundError):
+    try:
+        from langchain_classic.chains import RetrievalQA
+    except (ImportError, ModuleNotFoundError):
+        from langchain_community.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
