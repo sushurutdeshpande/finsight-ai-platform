@@ -1,7 +1,6 @@
 # ══════════════════════════════════════════════════════
-# AI Financial Analyst Agent — Dependencies
+# FinSight — Dependencies
 # ══════════════════════════════════════════════════════
-# Install: pip install -r requirements.txt
 
 # Core framework
 streamlit==1.40.2
@@ -14,12 +13,10 @@ langchain-community==0.3.23
 langchain-experimental==0.3.4
 langchain-huggingface==0.1.2
 
-# AI / ML (Using lightweight CPU PyTorch to avoid massive 3.5GB CUDA downloads)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
+# AI / ML
 groq==0.28.0
 sentence-transformers==3.3.1
-faiss-cpu>=1.9.0
+faiss-cpu>=1.7.4
 
 # Data & Visualization
 pandas==2.2.3
@@ -39,6 +36,3 @@ supabase>=2.0.0
 
 # Reliability
 tenacity>=8.2.0
-
-# Testing (dev only, not needed in production)
-# pytest>=7.4.0

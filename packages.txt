@@ -1,2 +1,5 @@
 tesseract-ocr
 poppler-utils
+build-essential
+cmake
+swig
